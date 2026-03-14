@@ -9,7 +9,9 @@ local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 local RequestProfile = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Misc"):WaitForChild("RequestProfile")
 
--- === Your HUD code and functions ===
+-- =========================
+-- Utility function
+-- =========================
 local function toPercentString(value)
     if type(value) ~= "number" or value < 0 then
         return "N/A"
@@ -17,7 +19,9 @@ local function toPercentString(value)
     return string.format("%.2f%%", value * 100)
 end
 
--- === Create HUD Frame ===
+-- =========================
+-- Create HUD
+-- =========================
 local HUDGui = Instance.new("ScreenGui")
 HUDGui.Name = "RivalsHUD"
 HUDGui.ResetOnSpawn = false
@@ -80,10 +84,12 @@ ListLayout.Padding = UDim.new(0, 4)
 ListLayout.SortOrder = Enum.SortOrder.LayoutOrder
 ListLayout.Parent = ListFrame
 
--- Store player entries for updating
+-- Store player entries
 local PlayerEntries = {}
 
--- Function to create a player entry
+-- =========================
+-- Create a player entry
+-- =========================
 local function createPlayerEntry(player, profile)
     local Frame = Instance.new("Frame")
     Frame.Name = "Entry_" .. player.UserId
@@ -119,11 +125,7 @@ local function createPlayerEntry(player, profile)
     TextLabel.TextWrapped = true
 
     if profile then
-        local rankInfo = ""
-        if profile.RankedCurrentELO then
-            rankInfo = " | ELO: " .. tostring(profile.RankedCurrentELO)
-        end
-        
+        local rankInfo = profile.RankedCurrentELO and " | ELO: " .. tostring(profile.RankedCurrentELO) or ""
         TextLabel.Text = string.format(
             "%s (Lvl %s)%s\nCasual: %s | Ranked: %s\n%s | %s | %s | %s",
             player.Name,
@@ -136,7 +138,6 @@ local function createPlayerEntry(player, profile)
             profile.FavoriteWeapons and profile.FavoriteWeapons[3] and profile.FavoriteWeapons[3].Name or "N/A",
             profile.FavoriteWeapons and profile.FavoriteWeapons[4] and profile.FavoriteWeapons[4].Name or "N/A"
         )
-        TextLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
     else
         TextLabel.Text = string.format("%s\nProfile unavailable\n(Privacy enabled or loading...)", player.Name)
         TextLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
@@ -150,30 +151,28 @@ local function createPlayerEntry(player, profile)
     return Frame
 end
 
--- Optimized profile fetching
+-- =========================
+-- Fetch profile safely
+-- =========================
 local function getProfile(player)
-    -- Method 1: Try with player object (works for local player)
     local ok1, result1 = pcall(function()
         return RequestProfile:InvokeServer(player)
     end)
-    if ok1 and type(result1) == "table" then
-        return result1
-    end
-    
-    task.wait(0.1) -- Small delay to avoid rate limiting
-    
-    -- Method 2: Try with UserId (works for most other players)
+    if ok1 and type(result1) == "table" then return result1 end
+
+    task.wait(0.1)
+
     local ok2, result2 = pcall(function()
         return RequestProfile:InvokeServer(player.UserId)
     end)
-    if ok2 and type(result2) == "table" then
-        return result2
-    end
-    
+    if ok2 and type(result2) == "table" then return result2 end
+
     return nil
 end
 
--- Function to update canvas size
+-- =========================
+-- Update canvas size
+-- =========================
 local function updateCanvasSize()
     ListFrame.CanvasSize = UDim2.new(0, 0, 0, ListLayout.AbsoluteContentSize.Y + 10)
 end
@@ -191,39 +190,36 @@ end
 -- Fetch all profiles
 local function fetchAllProfiles()
     clearEntries()
-    
     for _, player in ipairs(Players:GetPlayers()) do
         task.spawn(function()
             local profile = getProfile(player)
             createPlayerEntry(player, profile)
             updateCanvasSize()
-            
-            -- Retry once after 3 seconds if no profile found
+
+            -- Retry once after 3 seconds if failed
             if not profile then
                 task.wait(3)
                 if PlayerEntries[player.UserId] and player.Parent then
                     local retryProfile = getProfile(player)
                     if retryProfile then
                         local entry = PlayerEntries[player.UserId]
-                        if entry then
-                            entry:Destroy()
-                        end
+                        if entry then entry:Destroy() end
                         createPlayerEntry(player, retryProfile)
                         updateCanvasSize()
                     end
                 end
             end
         end)
-        task.wait(0.2) -- Stagger requests
+        task.wait(0.2)
     end
 end
 
 -- Initial fetch
 fetchAllProfiles()
 
--- Handle new players joining
+-- Player events
 Players.PlayerAdded:Connect(function(player)
-    task.wait(3) -- Wait for their data to load
+    task.wait(3)
     if player.Parent then
         local profile = getProfile(player)
         createPlayerEntry(player, profile)
@@ -231,7 +227,6 @@ Players.PlayerAdded:Connect(function(player)
     end
 end)
 
--- Handle players leaving
 Players.PlayerRemoving:Connect(function(player)
     local entry = PlayerEntries[player.UserId]
     if entry then
@@ -249,26 +244,24 @@ task.spawn(function()
     end
 end)
 
-print("Rivals HUD loaded successfully!")
-
--- [Insert full HUD creation and profile fetching here]
-
--- === Queue this script to run on every teleport ===
+-- =========================
+-- Teleport queue
+-- =========================
 local function queueForNextTeleport()
-    -- We use the script's own source to queue it
     local source = [[
-        loadstring(game:HttpGet("https://github.com/nosniy-games/auto/raw/refs/heads/main/autoload.lua"))()
+        -- Reload this script automatically on teleport
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/nosniy-games/auto/main/autoload.lua"))()
     ]]
-    -- Replace the above with your own source if not using HttpGet
     TeleportService:QueueOnTeleport(source)
 end
 
--- Detect future teleports
 LocalPlayer.OnTeleport:Connect(function(state)
     if state == Enum.TeleportState.InProgress then
         queueForNextTeleport()
     end
 end)
 
--- Queue for the first teleport
+-- Queue for first teleport
 queueForNextTeleport()
+
+print("Rivals HUD loaded successfully!")
