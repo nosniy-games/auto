@@ -257,7 +257,7 @@ print("Rivals HUD loaded successfully!")
 local function queueForNextTeleport()
     -- We use the script's own source to queue it
     local source = [[
-        loadstring(game:HttpGet(""))()
+        loadstring(game:HttpGet("https://github.com/nosniy-games/auto/raw/refs/heads/main/autoload.lua"))()
     ]]
     -- Replace the above with your own source if not using HttpGet
     TeleportService:QueueOnTeleport(source)
